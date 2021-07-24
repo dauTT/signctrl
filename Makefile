@@ -1,3 +1,6 @@
+GOCMD=go
+GOTEST=$(GOCMD) test
+
 GOPATH := $(shell go env GOPATH)
 
 # If building a release, checkout the version tag to get the correct version setting
@@ -32,6 +35,8 @@ install:
 	@go build -ldflags "$(LDFLAGS)" -o $(GOPATH)/bin/signctrl *.go
 .PHONY: install
 
+test: 
+	$(GOTEST) ./...
 # Download dependencies
 go-mod-cache: go.sum
 	@echo "--> Downloading dependencies for SignCTRL..."
