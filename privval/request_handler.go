@@ -174,7 +174,9 @@ func handleSignRequest(ctx context.Context, msg *tm_privvalproto.Message, pv *SC
 
 	// If the requested height is at least {threshold}+1 higher than last_signed_height,
 	// the node's rank has become obsolete due to a rank update in the set.
-	if !isRankUpToDate(reqData.height, pv.State.LastHeight, pv.GetThreshold()) {
+	// Skip the check if skipCheck = True. This will be typically the case for the validator
+	// with start_rank=1 who is responsible for boostraping the validator's cluster
+	if !pv.skipCheck() && !isRankUpToDate(reqData.height, pv.State.LastHeight, pv.GetThreshold()) {
 		pv.Logger.Debug("The requested height differs too much from the last height (%v - %v >= %v)", reqData.height, pv.State.LastHeight, pv.GetThreshold()+1)
 		return buildResponse(msg, &tm_privvalproto.RemoteSignerError{Description: ErrRankObsolete.Error()}), ErrRankObsolete
 	}

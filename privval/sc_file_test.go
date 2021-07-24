@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/BlockscapeNetwork/signctrl/config"
 	"github.com/BlockscapeNetwork/signctrl/types"
@@ -47,6 +48,7 @@ func testConfig(t *testing.T) config.Config {
 			ValidatorListenAddress:    "tcp://127.0.0.1:3000",
 			ValidatorListenAddressRPC: "tcp://127.0.0.1:26657",
 			RetryDialAfter:            "15s",
+			BootStrapTime:             "1s",
 		},
 		Privval: config.PrivValidator{
 			ChainID: "testchain",
@@ -100,4 +102,11 @@ func TestKeyFilePath(t *testing.T) {
 func TestStateFilePath(t *testing.T) {
 	path := StateFilePath("/tmp")
 	assert.Equal(t, "/tmp/priv_validator_state.json", path)
+}
+
+func TestSkipCheck(t *testing.T) {
+	pv := mockSCFilePV(t)
+	assert.True(t, pv.skipCheck())
+	time.Sleep(1 * time.Second)
+	assert.False(t, pv.skipCheck())
 }

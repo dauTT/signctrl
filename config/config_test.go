@@ -20,6 +20,7 @@ func testConfig(t *testing.T) *Config {
 			ValidatorListenAddress:    "tcp://127.0.0.1:3000",
 			ValidatorListenAddressRPC: "tcp://127.0.0.1:26657",
 			RetryDialAfter:            "15s",
+			BootStrapTime:             "10m",
 		},
 		Privval: PrivValidator{
 			ChainID: "testchain",
@@ -173,4 +174,33 @@ func TestLogLevelsToRegExp(t *testing.T) {
 	lvls := []logutils.LogLevel{"A", "BC", "DEF"}
 	regexp := logLevelsToRegExp(&lvls)
 	assert.Equal(t, "A|BC|DEF", regexp)
+}
+
+func TestValidate_time(t *testing.T) {
+	testCases := []struct {
+		name       string
+		time_value string
+		expPass    bool
+	}{
+		{"incorrect time format abc", "abc", false},
+		{"incorect time format suffix sa instead of s,m,h", "12sa", false},
+		{"incorect time format suffix mf instead of s,m,h", "12mf", false},
+		{"incorect time format suffix hg instead of s,m,h", "12hg", false},
+		{"incorrect time number", "1a2h", false},
+		{"correct time format 10s", "10s", true},
+		{"correct time format 1234m", "1234m", true},
+		{"correct time format 7890h", "7890h", true},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validate_time("", "config_time_attribute", tt.time_value)
+			if tt.expPass {
+				assert.True(t, errs == "")
+			} else {
+				assert.False(t, errs == "")
+			}
+		})
+	}
+
 }

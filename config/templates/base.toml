@@ -44,3 +44,8 @@ validator_laddr_rpc = "tcp://127.0.0.1:26657"
 # Must be 1 or higher. Use 's' for seconds, 'm' for
 # minutes and 'h' for hours.
 retry_dial_after = "15s"
+
+# Time needed to bootstrap a cluster of validators
+# Must be 0 or higher. Use 's' for seconds, 'm' for
+# minutes and 'h' for hours.
+bootstrap_time = "30m"

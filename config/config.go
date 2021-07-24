@@ -50,6 +50,9 @@ type Base struct {
 	// RetryDialAfter is the time after which SignCTRL assumes it lost connection to
 	// the validator and retries dialing it.
 	RetryDialAfter string `mapstructure:"retry_dial_after"`
+
+	// BootStrapTime is the time needed to bootstrap a cluster of validators
+	BootStrapTime string `mapstructure:"bootstrap_time"`
 }
 
 // validateAddress validates the configuration's addresses.
@@ -98,23 +101,30 @@ func (b Base) validate() error {
 	if err := validateAddress(b.ValidatorListenAddressRPC, "validator_laddr_rpc"); err != nil {
 		errs += fmt.Sprintf("\t%v\n", err.Error())
 	}
-	if b.RetryDialAfter == "" {
-		errs += "\tretry_dial_after must not be empty\n"
-	} else {
-		time := regexp.MustCompile(`[1-9][0-9]+`).FindString(b.RetryDialAfter)
-		if time == "" {
-			errs += "\tretry_dial_after is missing the time\n"
-		}
-		timeUnit := regexp.MustCompile(`s|m|h`).FindString(b.RetryDialAfter)
-		if timeUnit == "" {
-			errs += "\tretry_dial_after is missing the unit of time\n"
-		}
-	}
+	errs = validate_time(errs, "retry_dial_after", b.RetryDialAfter)
+	errs = validate_time(errs, "boostrap_time", b.BootStrapTime)
+
 	if errs != "" {
 		return errors.New(errs)
 	}
 
 	return nil
+}
+
+func validate_time(errs string, congfi_attr string, config_value string) string {
+	if config_value == "" {
+		errs += fmt.Sprintf("\t%s must not be empty\n", congfi_attr)
+	} else {
+		time := regexp.MustCompile(`[1-9][0-9]+`).FindString(config_value)
+		if time == "" {
+			errs += fmt.Sprintf("\t%s is missing the time\n", congfi_attr)
+		}
+		timeUnit := regexp.MustCompile(`s\b|m\b|h\b`).FindString(config_value)
+		if timeUnit == "" {
+			errs += fmt.Sprintf("\t%s is missing the unit of time\n", congfi_attr)
+		}
+	}
+	return errs
 }
 
 // PrivValidator defines the types of private validators that sign incoming sign
@@ -188,6 +198,16 @@ func FilePath(cfgDir string) string {
 // GetRetryDialTime converts the string representation of RetryDialAfter into
 // time.Duration and returns it.
 func GetRetryDialTime(timeString string) time.Duration {
+	return getTime(timeString)
+}
+
+// GetBootStrapTime converts the string representation of BootStrapTime into
+// time.Duration and returns it.
+func GetBootStrapTime(timeString string) time.Duration {
+	return getTime(timeString)
+}
+
+func getTime(timeString string) time.Duration {
 	t := regexp.MustCompile(`0|[1-9][0-9]*`).FindString(timeString)
 	tConv, _ := strconv.Atoi(t)
 

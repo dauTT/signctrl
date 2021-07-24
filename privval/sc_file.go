@@ -2,6 +2,7 @@ package privval
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -45,6 +46,10 @@ type SCFilePV struct {
 	SecretConn net.Conn
 	HTTP       *http.Server
 	Gauges     types.Gauges
+
+	// TimeStamp is the time when SCFilePv is
+	// istantiated
+	TimeStamp time.Time
 }
 
 // KeyFilePath returns the absolute path to the priv_validator_key.json file.
@@ -60,11 +65,12 @@ func StateFilePath(cfgDir string) string {
 // NewSCFilePV creates a new instance of SCFilePV.
 func NewSCFilePV(logger *types.SyncLogger, cfg config.Config, state config.State, tmpv tm_types.PrivValidator, http *http.Server) *SCFilePV {
 	pv := &SCFilePV{
-		Logger:   logger,
-		Config:   cfg,
-		State:    state,
-		TMFilePV: tmpv,
-		HTTP:     http,
+		Logger:    logger,
+		Config:    cfg,
+		State:     state,
+		TMFilePV:  tmpv,
+		HTTP:      http,
+		TimeStamp: time.Now(),
 	}
 	pv.BaseService = *types.NewBaseService(
 		logger,
@@ -85,6 +91,7 @@ func NewSCFilePV(logger *types.SyncLogger, cfg config.Config, state config.State
 // In order to stop the goroutine, Stop() can be called outside of run(). The goroutine
 // returns on its own once SignCTRL is forced to shut down.
 func (pv *SCFilePV) run() {
+	pv.Logger.Info("****************** START MAIN LOOP *******************")
 	retryDialTimeout := config.GetRetryDialTime(pv.Config.Base.RetryDialAfter)
 	timeout := time.NewTimer(retryDialTimeout)
 
@@ -118,6 +125,9 @@ func (pv *SCFilePV) run() {
 			}
 
 		default:
+			pv.Logger.Info("**************** NEW INCOMING MSG ******************************")
+			pv.Logger.Info(fmt.Sprintf("validator info: %s", pv.String()))
+
 			var msg tm_privvalproto.Message
 			r := tm_protoio.NewDelimitedReader(pv.SecretConn, maxRemoteSignerMsgSize)
 			if _, err := r.ReadMsg(&msg); err != nil {
@@ -126,7 +136,6 @@ func (pv *SCFilePV) run() {
 				}
 				continue
 			}
-
 			timeout.Reset(retryDialTimeout)
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -147,6 +156,7 @@ func (pv *SCFilePV) run() {
 					}
 
 					cancel()
+					pv.Logger.Info("****************** START END LOOP *******************")
 					return
 				}
 			}
@@ -212,4 +222,27 @@ func (pv *SCFilePV) OnMissedTooMany() {
 func (pv *SCFilePV) OnPromote() {
 	pv.Logger.Debug("Setting signctrl_rank gauge to %v\n", pv.GetRank())
 	pv.Gauges.RankGauge.Set(float64(pv.GetRank()))
+}
+
+// String returns basic info of SCFilePV
+func (pv *SCFilePV) String() string {
+	return fmt.Sprintf(`
+				rank:  %d
+				MissedInARow: %d
+				CurrentHeight: %d
+				Threshold : %d
+	`, pv.GetRank(), pv.GetMissedInARow(),
+		pv.GetCurrentHeight(), pv.GetThreshold())
+}
+
+func (pv *SCFilePV) getAging() time.Duration {
+	return time.Now().Sub(pv.TimeStamp)
+}
+
+func (pv *SCFilePV) skipCheck() bool {
+	bootstraptime := config.GetBootStrapTime((pv.Config.Base.BootStrapTime))
+	if pv.getAging() < bootstraptime {
+		return true
+	}
+	return false
 }
